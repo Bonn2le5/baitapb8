@@ -1,0 +1,595 @@
+CREATE TABLE HangSX (
+    MaHangSX VARCHAR2(10) CONSTRAINT pk_hangsx PRIMARY KEY,
+    TenHang  VARCHAR2(30) NOT NULL,
+    DiaChi   VARCHAR2(50),
+    SoDT     VARCHAR2(15),
+    Email    VARCHAR2(50)
+);
+
+CREATE TABLE SanPham (
+    MaSP      VARCHAR2(10) CONSTRAINT pk_sanpham PRIMARY KEY,
+    MaHangSX  VARCHAR2(10) REFERENCES HangSX(MaHangSX),
+    TenSP     VARCHAR2(50) NOT NULL,
+    SoLuong   NUMBER(10),
+    MauSac    VARCHAR2(20),
+    GiaBan    NUMBER(15,2),
+    DonViTinh VARCHAR2(15),
+    MoTa      CLOB
+);
+
+CREATE TABLE NhanVien (
+    MaNV     VARCHAR2(10) CONSTRAINT pk_nhanvien PRIMARY KEY,
+    TenNV    VARCHAR2(50) NOT NULL,
+    GioiTinh VARCHAR2(10),
+    DiaChi   VARCHAR2(100),
+    SoDT     VARCHAR2(15),
+    Email    VARCHAR2(50),
+    TenPhong VARCHAR2(30)
+);
+
+CREATE TABLE PNhap (
+    SoHDN    VARCHAR2(10) CONSTRAINT pk_pnhap PRIMARY KEY,
+    NgayNhap DATE,
+    MaNV     VARCHAR2(10) REFERENCES NhanVien(MaNV)
+);
+
+CREATE TABLE Nhap (
+    SoHDN    VARCHAR2(10) REFERENCES PNhap(SoHDN),
+    MaSP     VARCHAR2(10) REFERENCES SanPham(MaSP),
+    SoLuongN NUMBER(10),
+    DonGiaN  NUMBER(15,2),
+    CONSTRAINT pk_nhap PRIMARY KEY (SoHDN, MaSP)
+);
+
+CREATE TABLE PXuat (
+    SoHDX    VARCHAR2(10) CONSTRAINT pk_pxuat PRIMARY KEY,
+    NgayXuat DATE,
+    MaNV     VARCHAR2(10) REFERENCES NhanVien(MaNV)
+);
+
+CREATE TABLE Xuat (
+    SoHDX    VARCHAR2(10) REFERENCES PXuat(SoHDX),
+    MaSP     VARCHAR2(10) REFERENCES SanPham(MaSP),
+    SoLuongX NUMBER(10),
+    CONSTRAINT pk_xuat PRIMARY KEY (SoHDX, MaSP)
+);
+
+INSERT INTO HangSX VALUES ('HSX01','Samsung','Ha Noi','0901111111','contact@samsung.com.vn');
+INSERT INTO HangSX VALUES ('HSX02','Apple','TP HCM','0902222222','sales@apple.com');
+INSERT INTO HangSX VALUES ('HSX03','Sony','Da Nang','0903333333','support@sony.com.vn');
+INSERT INTO HangSX VALUES ('HSX04','Xiaomi','Ha Noi','0904444444','xiaomi@mail.com');
+
+INSERT INTO SanPham VALUES ('SP01','HSX01','Galaxy S24 Ultra',100,'Titan','30000000','Chiec','Smartphone');
+INSERT INTO SanPham VALUES ('SP02','HSX02','iPhone 15 Pro Max',50,'Titan Tu nhien','35000000','Chiec','Smartphone');
+INSERT INTO SanPham VALUES ('SP03','HSX03','Sony Bravia X80L',20,'Den','18000000','Chiec','Tivi');
+INSERT INTO SanPham VALUES ('SP04','HSX01','Galaxy Tab S9',30,'Xam','15000000','Chiec','May tinh bang');
+INSERT INTO SanPham VALUES ('SP05','HSX04','Redmi Note 13',200,'Xanh','5000000','Chiec','Smartphone');
+
+INSERT INTO NhanVien VALUES ('NV01','Nguyen Van An','Nam','Ha Noi','0911000111','annv@company.com','Phong Kinh Doanh');
+INSERT INTO NhanVien VALUES ('NV02','Tran Thi Binh','Nu','TP HCM','0922000222','binhtt@company.com','Phong Kho');
+INSERT INTO NhanVien VALUES ('NV03','Le Quang Cuong','Nam','Da Nang','0933000333','cuonglq@company.com','Phong KT');
+
+
+INSERT INTO PNhap VALUES ('HDN01', '2024-01-05', 'NV02');
+INSERT INTO PNhap VALUES ('HDN02', '2024-02-15', 'NV02');
+
+
+INSERT INTO Nhap VALUES ('HDN01','SP01',50,25000000);
+INSERT INTO Nhap VALUES ('HDN01','SP04',20,12000000);
+INSERT INTO Nhap VALUES ('HDN02','SP02',30,30000000);
+
+
+INSERT INTO PXuat VALUES ('HDX01', '2024-01-20', 'NV01');
+INSERT INTO PXuat VALUES ('HDX02', '2024-03-01', 'NV01');
+
+INSERT INTO Xuat VALUES ('HDX01','SP01',5);  -- Bán 5 chiếc S24
+INSERT INTO Xuat VALUES ('HDX01','SP04',2);  -- Bán 2 chiếc Tab S9
+INSERT INTO Xuat VALUES ('HDX02','SP02',10); -- Bán 10 chiếc iPhone 15
+
+
+COMMIT;
+
+
+-- PHIẾU BÀI TẬP 1
+-- a. sp_NhapHangSX
+
+CREATE OR REPLACE PROCEDURE sp_NhapHangSX (
+    p_ma     IN VARCHAR2,
+    p_ten    IN VARCHAR2,
+    p_dc     IN VARCHAR2,
+    p_sdt    IN VARCHAR2,
+    p_email  IN VARCHAR2
+) AS
+    v_count NUMBER := 0;
+BEGIN
+ 
+    SELECT COUNT(*) INTO v_count FROM HangSX WHERE TenHang = p_ten;
+
+    IF v_count > 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Hang san xuat "' || p_ten || '" da ton tai.');
+    ELSE
+        INSERT INTO HangSX VALUES (p_ma, p_ten, p_dc, p_sdt, p_email);
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('Da them hang san xuat: ' || p_ten);
+    END IF;
+END sp_NhapHangSX;
+/
+
+
+-- b. sp_NhapSP
+
+CREATE OR REPLACE PROCEDURE sp_NhapSP (
+    p_masp    IN VARCHAR2,
+    p_tenHang IN VARCHAR2,
+    p_tensp   IN VARCHAR2,
+    p_sl      IN NUMBER,
+    p_mau     IN VARCHAR2,
+    p_gia     IN NUMBER,
+    p_dvt     IN VARCHAR2,
+    p_mota    IN CLOB
+) AS
+    v_maHang VARCHAR2(10);
+    v_count  NUMBER := 0;
+BEGIN
+    BEGIN
+        SELECT MaHangSX INTO v_maHang FROM HangSX WHERE TenHang = p_tenHang;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('Hang san xuat "' || p_tenHang || '" khong ton tai.');
+            RETURN;
+    END;
+
+    SELECT COUNT(*) INTO v_count FROM SanPham WHERE MaSP = p_masp;
+
+    IF v_count > 0 THEN
+        UPDATE SanPham
+        SET MaHangSX=v_maHang, TenSP=p_tensp, SoLuong=p_sl,
+            MauSac=p_mau, GiaBan=p_gia, DonViTinh=p_dvt, MoTa=p_mota
+        WHERE MaSP = p_masp;
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('Da cap nhat san pham: ' || p_masp);
+    ELSE
+        INSERT INTO SanPham VALUES (p_masp,v_maHang,p_tensp,p_sl,p_mau,p_gia,p_dvt,p_mota);
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('Da them san pham moi: ' || p_masp);
+    END IF;
+END sp_NhapSP;
+/
+
+-- c. sp_xoaHangSX
+
+CREATE OR REPLACE PROCEDURE sp_xoaHangSX (
+    p_tenHang IN VARCHAR2
+) AS
+    v_maHang VARCHAR2(10);
+BEGIN
+    -- Cú pháp 2: lấy mã để kiểm tra và dùng xóa
+    BEGIN
+        SELECT MaHangSX INTO v_maHang FROM HangSX WHERE TenHang = p_tenHang;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            DBMS_OUTPUT.PUT_LINE('Hang san xuat "' || p_tenHang || '" chua ton tai.');
+            RETURN;
+    END;
+
+    DELETE FROM Nhap  WHERE MaSP IN (SELECT MaSP FROM SanPham WHERE MaHangSX = v_maHang);
+    DELETE FROM Xuat  WHERE MaSP IN (SELECT MaSP FROM SanPham WHERE MaHangSX = v_maHang);
+    DELETE FROM SanPham WHERE MaHangSX = v_maHang;
+    DELETE FROM HangSX  WHERE MaHangSX = v_maHang;
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Da xoa hang san xuat: ' || p_tenHang);
+END sp_xoaHangSX;
+/
+
+-- d. sp_NhapNhanVien (FLAG)
+
+CREATE OR REPLACE PROCEDURE sp_NhapNhanVien (
+    p_manv    IN VARCHAR2,
+    p_tennv   IN VARCHAR2,
+    p_gt      IN VARCHAR2,
+    p_dc      IN VARCHAR2,
+    p_sdt     IN VARCHAR2,
+    p_email   IN VARCHAR2,
+    p_phong   IN VARCHAR2,
+    p_flag    IN NUMBER       -- Cú pháp 3: biến FLAG
+) AS
+BEGIN
+    IF p_flag = 0 THEN
+        -- UPDATE nhân viên theo MaNV
+        UPDATE NhanVien
+        SET TenNV=p_tennv, GioiTinh=p_gt, DiaChi=p_dc,
+            SoDT=p_sdt, Email=p_email, TenPhong=p_phong
+        WHERE MaNV = p_manv;
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('Da cap nhat nhan vien: ' || p_manv);
+    ELSE
+        -- INSERT nhân viên mới
+        INSERT INTO NhanVien VALUES (p_manv,p_tennv,p_gt,p_dc,p_sdt,p_email,p_phong);
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('Da them nhan vien moi: ' || p_manv);
+    END IF;
+END sp_NhapNhanVien;
+/
+
+-- e. sp_NhapHoaDonNhap
+
+CREATE OR REPLACE PROCEDURE sp_NhapHoaDonNhap (
+    p_sohdn   IN VARCHAR2,
+    p_masp    IN VARCHAR2,
+    p_manv    IN VARCHAR2,
+    p_ngay    IN DATE,
+    p_slnhap  IN NUMBER,
+    p_dongia  IN NUMBER
+) AS
+    v_count NUMBER := 0;
+BEGIN
+    -- Kiểm tra MaSP
+    SELECT COUNT(*) INTO v_count FROM SanPham WHERE MaSP = p_masp;
+    IF v_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('San pham "' || p_masp || '" khong ton tai.');
+        RETURN;
+    END IF;
+
+    -- Kiểm tra MaNV
+    SELECT COUNT(*) INTO v_count FROM NhanVien WHERE MaNV = p_manv;
+    IF v_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Nhan vien "' || p_manv || '" khong ton tai.');
+        RETURN;
+    END IF;
+    SELECT COUNT(*) INTO v_count FROM PNhap WHERE SoHDN = p_sohdn;
+    IF v_count > 0 THEN
+        UPDATE Nhap SET SoLuongN=p_slnhap, DonGiaN=p_dongia
+        WHERE SoHDN = p_sohdn AND MaSP = p_masp;
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('Da cap nhat hoa don nhap: ' || p_sohdn);
+    ELSE
+        INSERT INTO PNhap VALUES (p_sohdn, p_ngay, p_manv);
+        INSERT INTO Nhap  VALUES (p_sohdn, p_masp, p_slnhap, p_dongia);
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('Da them hoa don nhap moi: ' || p_sohdn);
+    END IF;
+END sp_NhapHoaDonNhap;
+/
+
+-- f. sp_NhapHoaDonXuat
+--    Kiểm tra MaSP, MaNV, SoLuongX <= SoLuong tồn kho
+--    SoHDX tồn tại: UPDATE | Chưa: INSERT
+
+CREATE OR REPLACE PROCEDURE sp_NhapHoaDonXuat (
+    p_sohdx   IN VARCHAR2,
+    p_masp    IN VARCHAR2,
+    p_manv    IN VARCHAR2,
+    p_ngay    IN DATE,
+    p_slxuat  IN NUMBER
+) AS
+    v_count   NUMBER := 0;
+    v_slton   NUMBER := 0;   -- Cú pháp 7: kiểm tra tồn kho
+BEGIN
+    SELECT COUNT(*) INTO v_count FROM SanPham WHERE MaSP = p_masp;
+    IF v_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('San pham "' || p_masp || '" khong ton tai.');
+        RETURN;
+    END IF;
+
+    SELECT COUNT(*) INTO v_count FROM NhanVien WHERE MaNV = p_manv;
+    IF v_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Nhan vien "' || p_manv || '" khong ton tai.');
+        RETURN;
+    END IF;
+
+    -- Cú pháp 7: lấy số lượng tồn, so sánh với số lượng xuất
+    SELECT SoLuong INTO v_slton FROM SanPham WHERE MaSP = p_masp;
+    IF p_slxuat > v_slton THEN
+        DBMS_OUTPUT.PUT_LINE('So luong xuat vuot qua ton kho (' || v_slton || ').');
+        RETURN;
+    END IF;
+
+    SELECT COUNT(*) INTO v_count FROM PXuat WHERE SoHDX = p_sohdx;
+    IF v_count > 0 THEN
+        UPDATE Xuat SET SoLuongX = p_slxuat WHERE SoHDX = p_sohdx AND MaSP = p_masp;
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('Da cap nhat hoa don xuat: ' || p_sohdx);
+    ELSE
+        INSERT INTO PXuat VALUES (p_sohdx, p_ngay, p_manv);
+        INSERT INTO Xuat  VALUES (p_sohdx, p_masp, p_slxuat);
+        COMMIT;
+        DBMS_OUTPUT.PUT_LINE('Da them hoa don xuat moi: ' || p_sohdx);
+    END IF;
+END sp_NhapHoaDonXuat;
+/
+
+
+-- g. sp_XoaNhanVien
+--    Xóa liên bảng: Nhap, Xuat, PNhap, PXuat → rồi xóa NhanVien
+
+CREATE OR REPLACE PROCEDURE sp_XoaNhanVien (
+    p_manv IN VARCHAR2
+) AS
+    v_count NUMBER := 0;
+BEGIN
+    SELECT COUNT(*) INTO v_count FROM NhanVien WHERE MaNV = p_manv;
+    IF v_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('Nhan vien "' || p_manv || '" chua ton tai.');
+        RETURN;
+    END IF;
+
+    -- Cú pháp 5: xóa cascade thủ công
+    DELETE FROM Nhap  WHERE SoHDN IN (SELECT SoHDN FROM PNhap WHERE MaNV = p_manv);
+    DELETE FROM Xuat  WHERE SoHDX IN (SELECT SoHDX FROM PXuat WHERE MaNV = p_manv);
+    DELETE FROM PNhap WHERE MaNV = p_manv;
+    DELETE FROM PXuat WHERE MaNV = p_manv;
+    DELETE FROM NhanVien WHERE MaNV = p_manv;
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Da xoa nhan vien: ' || p_manv);
+END sp_XoaNhanVien;
+/
+
+
+-- h. sp_XoaSanPham
+--    Xóa Nhap, Xuat trước → rồi xóa SanPham
+
+CREATE OR REPLACE PROCEDURE sp_XoaSanPham (
+    p_masp IN VARCHAR2
+) AS
+    v_count NUMBER := 0;
+BEGIN
+    SELECT COUNT(*) INTO v_count FROM SanPham WHERE MaSP = p_masp;
+    IF v_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('San pham "' || p_masp || '" chua ton tai.');
+        RETURN;
+    END IF;
+
+    -- Cú pháp 5: xóa bảng con trước
+    DELETE FROM Nhap WHERE MaSP = p_masp;
+    DELETE FROM Xuat WHERE MaSP = p_masp;
+    DELETE FROM SanPham WHERE MaSP = p_masp;
+    COMMIT;
+    DBMS_OUTPUT.PUT_LINE('Da xoa san pham: ' || p_masp);
+END sp_XoaSanPham;
+/
+
+
+-- GỌI THỬ – PHIẾU BÀI TẬP 1
+
+SET SERVEROUTPUT ON;
+
+BEGIN sp_NhapHangSX('HSX005','LG','Binh Duong','0944444444','lg@mail.com'); END;
+/
+BEGIN sp_NhapSP('SP06','Samsung','Galaxy A55',100,'Xanh',10000000,'Cai','Mid-range'); END;
+/
+BEGIN sp_NhapNhanVien('NV04','Pham Van D','Nam','Can Tho','0955555555','pvd@mail.com','Kinh Doanh',1); END;
+/
+BEGIN sp_NhapHoaDonNhap('HDN03','SP002','NV01',DATE '2024-02-01',10,28000000); END;
+/
+BEGIN sp_NhapHoaDonXuat('HDX03','SP001','NV02',DATE '2024-02-05',3); END;
+/
+
+-- PHIẾU BÀI TẬP 2
+-- (Thủ tục CÓ tham số OUT – trả về mã kết quả)
+-- a. sp_ThemNhanVien (OUT)
+--    GioiTinh sai → KQ=1 | Flag=0 INSERT | Flag!=0 UPDATE → KQ=0
+
+CREATE OR REPLACE PROCEDURE sp_ThemNhanVien (
+    p_manv   IN  VARCHAR2,
+    p_tennv  IN  VARCHAR2,
+    p_gt     IN  VARCHAR2,
+    p_dc     IN  VARCHAR2,
+    p_sdt    IN  VARCHAR2,
+    p_email  IN  VARCHAR2,
+    p_phong  IN  VARCHAR2,
+    p_flag   IN  NUMBER,
+    p_kq     OUT NUMBER          -- Cú pháp 1: tham số OUT
+) AS
+BEGIN
+    p_kq := 0;
+    -- Cú pháp 4: kiểm tra chuỗi GioiTinh
+    IF p_gt <> 'Nam' AND p_gt <> 'Nu' THEN
+        p_kq := 1;   -- lỗi giới tính
+        RETURN;
+    END IF;
+
+    -- Cú pháp 3: FLAG phân nhánh INSERT / UPDATE
+    IF p_flag = 0 THEN
+        INSERT INTO NhanVien VALUES (p_manv,p_tennv,p_gt,p_dc,p_sdt,p_email,p_phong);
+    ELSE
+        UPDATE NhanVien
+        SET TenNV=p_tennv, GioiTinh=p_gt, DiaChi=p_dc,
+            SoDT=p_sdt, Email=p_email, TenPhong=p_phong
+        WHERE MaNV = p_manv;
+    END IF;
+    COMMIT;
+END sp_ThemNhanVien;
+/
+
+-- b. sp_ThemMoiSP (OUT)
+--    TenHang không có → KQ=1 | SoLuong<0 → KQ=2 | Flag=0 INSERT | Flag!=0 UPDATE → KQ=0
+
+CREATE OR REPLACE PROCEDURE sp_ThemMoiSP (
+    p_masp    IN  VARCHAR2,
+    p_tenHang IN  VARCHAR2,
+    p_tensp   IN  VARCHAR2,
+    p_sl      IN  NUMBER,
+    p_mau     IN  VARCHAR2,
+    p_gia     IN  NUMBER,
+    p_dvt     IN  VARCHAR2,
+    p_mota    IN  CLOB,
+    p_flag    IN  NUMBER,
+    p_kq      OUT NUMBER
+) AS
+    v_maHang VARCHAR2(10);
+BEGIN
+    p_kq := 0;
+
+    -- Cú pháp 2: lấy MaHangSX, nếu lỗi → KQ=1
+    BEGIN
+        SELECT MaHangSX INTO v_maHang FROM HangSX WHERE TenHang = p_tenHang;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            p_kq := 1;
+            RETURN;
+    END;
+
+    IF p_sl < 0 THEN
+        p_kq := 2;
+        RETURN;
+    END IF;
+
+    IF p_flag = 0 THEN
+        INSERT INTO SanPham VALUES (p_masp,v_maHang,p_tensp,p_sl,p_mau,p_gia,p_dvt,p_mota);
+    ELSE
+        UPDATE SanPham
+        SET MaHangSX=v_maHang, TenSP=p_tensp, SoLuong=p_sl,
+            MauSac=p_mau, GiaBan=p_gia, DonViTinh=p_dvt, MoTa=p_mota
+        WHERE MaSP = p_masp;
+    END IF;
+    COMMIT;
+END sp_ThemMoiSP;
+/
+
+
+-- c. sp_XoaNhanVienOUT (OUT)
+--    MaNV chưa có → KQ=1 | Xóa liên bảng → KQ=0
+CREATE OR REPLACE PROCEDURE sp_XoaNhanVienOUT (
+    p_manv IN  VARCHAR2,
+    p_kq   OUT NUMBER
+) AS
+    v_count NUMBER := 0;
+BEGIN
+    p_kq := 0;
+    SELECT COUNT(*) INTO v_count FROM NhanVien WHERE MaNV = p_manv;
+    IF v_count = 0 THEN
+        p_kq := 1;
+        RETURN;
+    END IF;
+
+    -- Cú pháp 5: cascade delete thủ công
+    DELETE FROM Nhap  WHERE SoHDN IN (SELECT SoHDN FROM PNhap WHERE MaNV = p_manv);
+    DELETE FROM Xuat  WHERE SoHDX IN (SELECT SoHDX FROM PXuat WHERE MaNV = p_manv);
+    DELETE FROM PNhap WHERE MaNV = p_manv;
+    DELETE FROM PXuat WHERE MaNV = p_manv;
+    DELETE FROM NhanVien WHERE MaNV = p_manv;
+    COMMIT;
+END sp_XoaNhanVienOUT;
+/
+
+-- d. sp_XoaSanPhamOUT (OUT)
+--    MaSP chưa có → KQ=1 | Xóa liên bảng → KQ=0
+CREATE OR REPLACE PROCEDURE sp_XoaSanPhamOUT (
+    p_masp IN  VARCHAR2,
+    p_kq   OUT NUMBER
+) AS
+    v_count NUMBER := 0;
+BEGIN
+    p_kq := 0;
+    SELECT COUNT(*) INTO v_count FROM SanPham WHERE MaSP = p_masp;
+    IF v_count = 0 THEN
+        p_kq := 1;
+        RETURN;
+    END IF;
+
+    DELETE FROM Nhap WHERE MaSP = p_masp;
+    DELETE FROM Xuat WHERE MaSP = p_masp;
+    DELETE FROM SanPham WHERE MaSP = p_masp;
+    COMMIT;
+END sp_XoaSanPhamOUT;
+/
+
+
+-- e. sp_NhapHangSXOUT (OUT)
+--    TenHang đã tồn tại → KQ=1 | Chưa → INSERT, KQ=0
+CREATE OR REPLACE PROCEDURE sp_NhapHangSXOUT (
+    p_ma    IN  VARCHAR2,
+    p_ten   IN  VARCHAR2,
+    p_dc    IN  VARCHAR2,
+    p_sdt   IN  VARCHAR2,
+    p_email IN  VARCHAR2,
+    p_kq    OUT NUMBER
+) AS
+    v_count NUMBER := 0;
+BEGIN
+    p_kq := 0;
+    SELECT COUNT(*) INTO v_count FROM HangSX WHERE TenHang = p_ten;
+    IF v_count > 0 THEN
+        p_kq := 1;
+        RETURN;
+    END IF;
+    INSERT INTO HangSX VALUES (p_ma, p_ten, p_dc, p_sdt, p_email);
+    COMMIT;
+END sp_NhapHangSXOUT;
+/
+
+-- f. sp_NhapHoaDonNhapOUT (OUT)
+--    MaSP không có → KQ=1 | MaNV không có → KQ=2
+--    SoHDN tồn tại: UPDATE | Chưa: INSERT → KQ=0
+
+CREATE OR REPLACE PROCEDURE sp_NhapHoaDonNhapOUT (
+    p_sohdn  IN  VARCHAR2,
+    p_masp   IN  VARCHAR2,
+    p_manv   IN  VARCHAR2,
+    p_ngay   IN  DATE,
+    p_sl     IN  NUMBER,
+    p_dgia   IN  NUMBER,
+    p_kq     OUT NUMBER
+) AS
+    v_count NUMBER := 0;
+BEGIN
+    p_kq := 0;
+
+    SELECT COUNT(*) INTO v_count FROM SanPham WHERE MaSP = p_masp;
+    IF v_count = 0 THEN p_kq := 1; RETURN; END IF;
+
+    SELECT COUNT(*) INTO v_count FROM NhanVien WHERE MaNV = p_manv;
+    IF v_count = 0 THEN p_kq := 2; RETURN; END IF;
+
+    SELECT COUNT(*) INTO v_count FROM PNhap WHERE SoHDN = p_sohdn;
+    IF v_count > 0 THEN
+        UPDATE Nhap SET SoLuongN=p_sl, DonGiaN=p_dgia
+        WHERE SoHDN=p_sohdn AND MaSP=p_masp;
+    ELSE
+        INSERT INTO PNhap VALUES (p_sohdn, p_ngay, p_manv);
+        INSERT INTO Nhap  VALUES (p_sohdn, p_masp, p_sl, p_dgia);
+    END IF;
+    COMMIT;
+END sp_NhapHoaDonNhapOUT;
+/
+
+-- g. sp_NhapHoaDonXuatOUT (OUT)
+--    MaSP không có → KQ=1 | MaNV không có → KQ=2
+--    SoLuongX > tồn kho → KQ=3 | SoHDX tồn tại: UPDATE | Chưa: INSERT → KQ=0
+
+CREATE OR REPLACE PROCEDURE sp_NhapHoaDonXuatOUT (
+    p_sohdx  IN  VARCHAR2,
+    p_masp   IN  VARCHAR2,
+    p_manv   IN  VARCHAR2,
+    p_ngay   IN  DATE,
+    p_slx    IN  NUMBER,
+    p_kq     OUT NUMBER
+) AS
+    v_count NUMBER := 0;
+    v_slton NUMBER := 0;   -- Cú pháp 7: biến chứa tồn kho
+BEGIN
+    p_kq := 0;
+
+    SELECT COUNT(*) INTO v_count FROM SanPham WHERE MaSP = p_masp;
+    IF v_count = 0 THEN p_kq := 1; RETURN; END IF;
+
+    SELECT COUNT(*) INTO v_count FROM NhanVien WHERE MaNV = p_manv;
+    IF v_count = 0 THEN p_kq := 2; RETURN; END IF;
+
+    -- Cú pháp 7: lấy tồn kho và so sánh
+    SELECT SoLuong INTO v_slton FROM SanPham WHERE MaSP = p_masp;
+    IF p_slx > v_slton THEN
+        p_kq := 3;
+        RETURN;
+    END IF;
+
+    SELECT COUNT(*) INTO v_count FROM PXuat WHERE SoHDX = p_sohdx;
+    IF v_count > 0 THEN
+        UPDATE Xuat SET SoLuongX = p_slx WHERE SoHDX=p_sohdx AND MaSP=p_masp;
+    ELSE
+        INSERT INTO PXuat VALUES (p_sohdx, p_ngay, p_manv);
+        INSERT INTO Xuat  VALUES (p_sohdx, p_masp, p_slx);
+    END IF;
+    COMMIT;
+END sp_NhapHoaDonXuatOUT;
+/
